@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>콘텐츠 캘린더</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f14;
+    --surface: #16181f;
+    --surface2: #1e2029;
+    --border: #2a2d3a;
+    --text: #e8eaf0;
+    --text-muted: #6b7080;
+    --accent: #5b8cff;
+    --accent2: #ff6b9d;
+    --green: #4ecb8d;
+    --cat1: #5b8cff;
+    --cat2: #ff6b9d;
+    --cat3: #4ecb8d;
+    --cat4: #f5c842;
+    --cat5: #b47dff;
+    --cat6: #ff8c5a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Pretendard',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px; border-bottom:1px solid var(--border);
+    background:var(--surface); position:sticky; top:0; z-index:100;
+  }
+  .logo { font-size:18px; font-weight:700; }
+  .logo span { color:var(--accent); }
+  .week-nav { display:flex; align-items:center; gap:10px; }
+  .week-nav button {
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; padding:6px 14px;
+    cursor:pointer; font-size:13px; transition:all .2s;
+  }
+  .week-nav button:hover { background:var(--accent); border-color:var(--accent); }
+  .week-label { font-weight:600; font-size:15px; min-width:190px; text-align:center; }
+  .add-btn {
+    background:var(--accent); border:none; color:#fff;
+    border-radius:8px; padding:8px 18px; cursor:pointer;
+    font-size:13px; font-weight:600; transition:all .2s;
+  }
+  .add-btn:hover { background:#3d72f0; transform:translateY(-1px); }
+
+  .stats-bar {
+    display:flex; gap:20px; padding:12px 28px;
+    border-bottom:1px solid var(--border); background:var(--surface);
+  }
+  .stat { display:flex; align-items:center; gap:8px; }
+  .stat-val { font-size:20px; font-weight:700; }
+  .stat-label { font-size:11px; color:var(--text-muted); line-height:1.3; }
+  .stat-divider { width:1px; background:var(--border); }
+  .progress-wrap { flex:1; display:flex; align-items:center; gap:10px; }
+  .progress-bar { flex:1; height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; transition:width .5s ease; }
+  .pct-label { font-size:12px; font-weight:600; min-width:32px; }
+
+  .app { display:flex; height:calc(100vh - 109px); }
+
+  aside {
+    width:210px; min-width:210px; background:var(--surface);
+    border-right:1px solid var(--border); overflow-y:auto; padding:14px 0;
+  }
+  .sidebar-title { padding:0 14px 8px; font-size:10px; font-weight:700; color:var(--text-muted); letter-spacing:1.2px; text-transform:uppercase; }
+  .cat-item { display:flex; align-items:center; gap:9px; padding:8px 14px; cursor:pointer; transition:background .15s; }
+  .cat-item:hover { background:var(--surface2); }
+  .cat-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .cat-name { font-size:12px; flex:1; }
+  .cat-badge { font-size:10px; background:rgba(91,140,255,.2); color:var(--accent); border-radius:10px; padding:1px 7px; font-weight:600; }
+
+  .drag-hint {
+    margin:14px 12px 0; padding:10px 12px;
+    background:rgba(91,140,255,.07); border:1px dashed rgba(91,140,255,.25);
+    border-radius:8px; font-size:11px; color:var(--text-muted); line-height:1.7;
+  }
+  .drag-hint strong { color:var(--accent); display:block; margin-bottom:3px; font-size:11px; }
+
+  main { flex:1; overflow:auto; }
+
+  .calendar-grid {
+    display:grid;
+    grid-template-columns: 195px repeat(7, 1fr);
+    min-width:860px;
+  }
+
+  .cal-header-cell {
+    background:var(--surface); border-bottom:2px solid var(--border);
+    border-right:1px solid var(--border); padding:12px;
+    position:sticky; top:0; z-index:10;
+  }
+  .cal-header-cell:first-child { z-index:11; }
+  .day-num { font-size:19px; font-weight:700; }
+  .day-label { font-size:10px; color:var(--text-muted); margin-top:2px; }
+  .day-today { border-top:2px solid var(--accent); }
+  .day-today .day-num { color:var(--accent); }
+
+  .row-label {
+    background:var(--surface); border-right:2px solid var(--border);
+    border-bottom:1px solid var(--border); padding:10px 12px;
+    display:flex; flex-direction:column; gap:3px;
+    position:sticky; left:0; z-index:5;
+  }
+  .row-main-cat { font-size:11px; font-weight:700; display:flex; align-items:center; gap:6px; }
+  .row-main-cat .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .row-sub { font-size:10px; color:var(--text-muted); padding-left:14px; }
+
+  .cal-cell {
+    border-right:1px solid var(--border); border-bottom:1px solid var(--border);
+    padding:7px; min-height:78px; transition:background .12s; position:relative;
+  }
+  .cal-cell:hover { background:rgba(255,255,255,.02); }
+  .cal-cell.drag-over {
+    background:rgba(91,140,255,.1);
+    outline:2px dashed var(--accent);
+    outline-offset:-2px;
+  }
+
+  .task-chip {
+    display:flex; align-items:flex-start; gap:5px;
+    padding:5px 7px; border-radius:6px; margin-bottom:4px;
+    font-size:11px; background:var(--surface2);
+    border:1px solid var(--border); border-left:3px solid;
+    word-break:keep-all; transition:all .15s; user-select:none;
+  }
+  .task-chip:not(.done) { cursor:grab; }
+  .task-chip:not(.done):hover { transform:translateX(2px); box-shadow:0 2px 10px rgba(0,0,0,.35); }
+  .task-chip:not(.done):hover { border-top-color:rgba(255,255,255,.08); }
+  .task-chip.dragging { opacity:.35; cursor:grabbing; }
+  .task-chip.done { opacity:.4; cursor:default; }
+  .task-chip.done .task-text { text-decoration:line-through; }
+
+  .task-check {
+    width:13px; height:13px; border-radius:3px;
+    border:1.5px solid var(--border); flex-shrink:0;
+    margin-top:1px; cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .task-chip.done .task-check { background:var(--green); border-color:var(--green); }
+  .task-chip.done .task-check::after { content:'✓'; font-size:8px; color:#fff; }
+
+  .drag-grip {
+    font-size:12px; color:rgba(255,255,255,.2); flex-shrink:0;
+    margin-top:0; line-height:1.1; cursor:grab;
+    opacity:0; transition:opacity .15s; letter-spacing:-1px;
+  }
+  .task-chip:hover .drag-grip { opacity:1; }
+
+  .add-task-btn {
+    display:flex; align-items:center; gap:3px;
+    font-size:10px; color:var(--text-muted); cursor:pointer;
+    padding:3px 4px; border-radius:4px; transition:all .15s;
+    background:none; border:none; margin-top:2px;
+  }
+  .add-task-btn:hover { color:var(--accent); background:rgba(91,140,255,.1); }
+
+  /* Context Menu */
+  .ctx-menu {
+    display:none; position:fixed; z-index:500;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:6px; min-width:210px;
+    box-shadow:0 16px 48px rgba(0,0,0,.55);
+    animation:ctxIn .12s ease;
+  }
+  @keyframes ctxIn { from { opacity:0; transform:scale(.94) translateY(-4px); } }
+  .ctx-menu.show { display:block; }
+  .ctx-title {
+    font-size:10px; color:var(--text-muted); padding:4px 10px 8px;
+    font-weight:600; letter-spacing:.3px; border-bottom:1px solid var(--border);
+    margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .ctx-item {
+    display:flex; align-items:center; gap:9px;
+    padding:7px 10px; border-radius:7px; cursor:pointer;
+    font-size:12px; transition:background .12s;
+  }
+  .ctx-item:hover { background:var(--surface2); }
+  .ctx-icon { font-size:13px; width:18px; text-align:center; flex-shrink:0; }
+  .ctx-divider { height:1px; background:var(--border); margin:5px 0; }
+  .ctx-sub-label { font-size:10px; color:var(--text-muted); padding:4px 10px 2px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; }
+  .ctx-date-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:3px; padding:4px 6px 6px; }
+  .ctx-date-btn {
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); border-radius:6px; padding:5px 2px;
+    cursor:pointer; font-size:10px; text-align:center;
+    transition:all .15s; font-family:inherit; line-height:1.4;
+  }
+  .ctx-date-btn:hover:not(:disabled) { background:var(--accent); border-color:var(--accent); }
+  .ctx-date-btn:disabled { opacity:.3; cursor:default; }
+  .ctx-date-btn.is-today { border-color:rgba(91,140,255,.5); }
+  .ctx-item.danger { color:#ff6b6b; }
+  .ctx-item.danger:hover { background:rgba(255,107,107,.08); }
+
+  /* Modal */
+  .modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.65); z-index:300;
+    align-items:center; justify-content:center; backdrop-filter:blur(4px);
+  }
+  .modal-overlay.show { display:flex; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; padding:26px; width:420px; max-width:95vw;
+    box-shadow:0 24px 80px rgba(0,0,0,.6); animation:slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform:translateY(14px); opacity:0; } }
+  .modal h3 { font-size:15px; font-weight:700; margin-bottom:18px; }
+  .modal label { display:block; font-size:11px; color:var(--text-muted); margin-bottom:5px; margin-top:12px; }
+  .modal input,.modal select,.modal textarea {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); padding:8px 11px;
+    font-size:12px; font-family:inherit; outline:none; transition:border .15s;
+  }
+  .modal input:focus,.modal select:focus,.modal textarea:focus { border-color:var(--accent); }
+  .modal select option { background:var(--surface2); }
+  .modal-actions { display:flex; gap:8px; margin-top:18px; justify-content:flex-end; }
+  .btn-cancel { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 16px; cursor:pointer; font-size:12px; }
+  .btn-save { background:var(--accent); border:none; color:#fff; border-radius:8px; padding:7px 18px; cursor:pointer; font-size:12px; font-weight:600; }
+  .btn-delete { background:transparent; border:1px solid rgba(255,107,107,.35); color:#ff6b6b; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:12px; margin-right:auto; }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(16px);
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:10px 20px; font-size:13px; font-weight:500;
+    opacity:0; transition:all .3s ease; z-index:999; pointer-events:none;
+    box-shadow:0 8px 32px rgba(0,0,0,.45); white-space:nowrap;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">콘텐츠 <span>캘린더</span></div>
+  <div class="week-nav">
+    <button onclick="changeWeek(-1)">◀ 이전 주</button>
+    <div class="week-label" id="weekLabel"></div>
+    <button onclick="changeWeek(1)">다음 주 ▶</button>
+  </div>
+  <button class="add-btn" onclick="openModal()">+ 할 일 추가</button>
+</header>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div><div class="stat-val" id="statTotal">0</div><div class="stat-label">이번 주<br>전체</div></div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div><div class="stat-val" style="color:var(--green)" id="statDone">0</div><div class="stat-label">완료</div></div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div><div class="stat-val" style="color:var(--accent2)" id="statTodo">0</div><div class="stat-label">미완료</div></div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="progress-wrap">
+    <div class="stat-label" style="white-space:nowrap">주간 달성률</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="pct-label" id="progressPct">0%</div>
+  </div>
+</div>
+
+<div class="app">
+  <aside>
+    <div class="sidebar-title">카테고리</div>
+    <div id="sidebarCats"></div>
+    <div class="drag-hint">
+      <strong>💡 날짜 이동 방법</strong>
+      할 일을 <b>드래그</b>해서 다른 날짜 셀에 놓거나,<br>
+      <b>우클릭</b>으로 날짜를 선택할 수 있어요.<br>
+      완료된 항목은 이동 불가예요.
+    </div>
+  </aside>
+  <main>
+    <div class="calendar-grid" id="calGrid"></div>
+  </main>
+</div>
+
+<!-- Context Menu -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-title" id="ctxTitle">할 일</div>
+  <div class="ctx-item" id="ctxPrev" onclick="ctxShift(-1)">
+    <span class="ctx-icon">⬅️</span> 하루 앞으로
+  </div>
+  <div class="ctx-item" id="ctxNext" onclick="ctxShift(1)">
+    <span class="ctx-icon">➡️</span> 하루 뒤로
+  </div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-sub-label">이번 주 날짜로 이동</div>
+  <div class="ctx-date-grid" id="ctxWeekDates"></div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="ctxEdit()"><span class="ctx-icon">✏️</span> 수정</div>
+  <div class="ctx-item danger" onclick="ctxDelete()"><span class="ctx-icon">🗑️</span> 삭제</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">할 일 추가</h3>
+    <label>대구분</label>
+    <select id="mCat" onchange="updateSubCats()"></select>
+    <label id="mSubCatLabel">소구분</label>
+    <select id="mSubCat" style="display:none"></select>
+    <label>날짜</label>
+    <input type="date" id="mDate">
+    <label>할 일</label>
+    <input type="text" id="mText" placeholder="예: 보도자료 작성">
+    <label>비고</label>
+    <textarea id="mNote" rows="2" placeholder="선택사항"></textarea>
+    <div class="modal-actions">
+      <button class="btn-delete" id="btnDelete" style="display:none" onclick="deleteFromModal()">삭제</button>
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-save" onclick="saveTask()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Data ──────────────────────────────────────────────
+const CATS = [
+  { id:'c1', name:'보도/기획자료', color:'var(--cat1)', subs:[''] },
+  { id:'c2', name:'언론문의',      color:'var(--cat2)', subs:[''] },
+  { id:'c3', name:'블로그',        color:'var(--cat3)', subs:[''] },
+  { id:'c4', name:'뉴스레터',      color:'var(--cat4)', subs:[''] },
+  { id:'c6', name:'기타',          color:'var(--cat6)', subs:[''] },
+];
+const KO = ['일','월','화','수','목','금','토'];
+
+let tasks = [];
+try { tasks = JSON.parse(localStorage.getItem('cc_v4') || '[]'); } catch(e){}
+
+if (!tasks.length) {
+  const seed = [
+    {catId:'c3',subCat:'',date:'2026-02-12',text:'아소현_셀 연휴'},
+    {catId:'c3',subCat:'',date:'2026-02-20',text:'내용 검토'},
+    {catId:'c3',subCat:'',date:'2026-02-23',text:'내용 검토'},
+    {catId:'c3',subCat:'',date:'2026-02-24',text:'내용 검토',done:true},
+    {catId:'c3',subCat:'',date:'2026-02-25',text:'업로드'},
+    {catId:'c3',subCat:'',date:'2026-02-25',text:'신규 아이템 발굴'},
+    {catId:'c4',subCat:'',date:'2026-02-20',text:'1차 보고',done:true},
+    {catId:'c4',subCat:'',date:'2026-02-23',text:'최종 보고'},
+    {catId:'c4',subCat:'',date:'2026-02-24',text:'+배포 / 로이나, 달록 안내'},
+    {catId:'c4',subCat:'',date:'2026-02-23',text:'윌리엄, 글로라'},
+    {catId:'c4',subCat:'',date:'2026-02-26',text:'로이나, 달록 확인'},
+    {catId:'c1',subCat:'',date:'2026-02-11',text:'GA 진행 상황 확인',done:true},
+    {catId:'c1',subCat:'',date:'2026-02-11',text:'팩트시트 확인 및 리마인드'},
+    {catId:'c1',subCat:'',date:'2026-02-11',text:'이에림 기자 식당 예약'},
+    {catId:'c1',subCat:'',date:'2026-02-12',text:'GA 진행 상황 확인'},
+    {catId:'c1',subCat:'',date:'2026-02-12',text:'팩트시트 확인'},
+    {catId:'c1',subCat:'',date:'2026-02-23',text:'카세괌 전국일주'},
+    {catId:'c6',subCat:'',date:'2026-02-24',text:'조선일보 기자 상신'},
+    {catId:'c6',subCat:'',date:'2026-02-23',text:'2월 언론 협찬 기간 상신'},
+    {catId:'c1',subCat:'',date:'2026-02-25',text:'작성'},
+    {catId:'c1',subCat:'',date:'2026-02-25',text:'배포'},
+  ];
+  tasks = seed.map((t,i)=>({id:'s'+i,done:false,...t}));
+  save();
+}
+
+function save() { localStorage.setItem('cc_v4', JSON.stringify(tasks)); }
+function fmt(d) { return d.toISOString().slice(0,10); }
+function dispDate(s) {
+  const d = new Date(s+'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()} (${KO[d.getDay()]})`;
+}
+
+// ── Week ──────────────────────────────────────────────
+let weekOff = 0;
+function weekDates(off=weekOff) {
+  const t=new Date(), day=t.getDay();
+  const mon=new Date(t); mon.setDate(t.getDate()-day+1+off*7);
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+
+// ── Render ────────────────────────────────────────────
+function render() {
+  renderSidebar(); renderCalendar(); renderStats();
+}
+
+function renderStats() {
+  const ws=weekDates().map(fmt);
+  const wt=tasks.filter(t=>ws.includes(t.date));
+  const total=wt.length, done=wt.filter(t=>t.done).length, todo=total-done;
+  const pct=total?Math.round(done/total*100):0;
+  document.getElementById('statTotal').textContent=total;
+  document.getElementById('statDone').textContent=done;
+  document.getElementById('statTodo').textContent=todo;
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=pct+'%';
+}
+
+function renderSidebar() {
+  const ws=weekDates().map(fmt);
+  document.getElementById('sidebarCats').innerHTML=CATS.map(cat=>{
+    const n=tasks.filter(t=>t.catId===cat.id&&ws.includes(t.date)&&!t.done).length;
+    return `<div class="cat-item">
+      <div class="cat-dot" style="background:${cat.color}"></div>
+      <span class="cat-name">${cat.name}</span>
+      ${n?`<span class="cat-badge">${n}</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+function getRows() {
+  return CATS.flatMap(cat=>cat.subs.map(sub=>({catId:cat.id,cat,subCat:sub})));
+}
+
+function renderCalendar() {
+  const grid=document.getElementById('calGrid');
+  grid.innerHTML='';
+  const wd=weekDates();
+  const today=fmt(new Date());
+  const f=wd[0],l=wd[6];
+  document.getElementById('weekLabel').textContent=
+    `${f.getMonth()+1}월 ${f.getDate()}일 – ${l.getMonth()+1}월 ${l.getDate()}일`;
+
+  // Corner
+  const corner=document.createElement('div');
+  corner.className='cal-header-cell';
+  corner.innerHTML='<span style="font-size:10px;color:var(--text-muted)">대구분 / 소구분</span>';
+  grid.appendChild(corner);
+
+  // Day headers
+  wd.forEach(d=>{
+    const ds=fmt(d);
+    const c=document.createElement('div');
+    c.className='cal-header-cell'+(ds===today?' day-today':'');
+    c.innerHTML=`<div class="day-num">${d.getDate()}</div><div class="day-label">${d.getMonth()+1}/${d.getDate()} (${KO[d.getDay()]})</div>`;
+    grid.appendChild(c);
+  });
+
+  // Rows
+  getRows().forEach(row=>{
+    const lbl=document.createElement('div');
+    lbl.className='row-label';
+    lbl.innerHTML=`<div class="row-main-cat"><div class="dot" style="background:${row.cat.color}"></div>${row.cat.name}</div>${row.subCat?`<div class="row-sub">${row.subCat}</div>`:''}` ;
+    grid.appendChild(lbl);
+
+    wd.forEach(d=>{
+      const ds=fmt(d);
+      const cell=document.createElement('div');
+      cell.className='cal-cell';
+      cell.dataset.date=ds;
+      cell.dataset.catId=row.catId;
+      cell.dataset.subCat=row.subCat;
+      cell.addEventListener('dragover',onDragOver);
+      cell.addEventListener('dragleave',onDragLeave);
+      cell.addEventListener('drop',onDrop);
+
+      tasks.filter(t=>t.catId===row.catId&&t.subCat===row.subCat&&t.date===ds).forEach(task=>{
+        const chip=document.createElement('div');
+        chip.className='task-chip'+(task.done?' done':'');
+        chip.style.borderLeftColor=row.cat.color;
+        chip.dataset.taskId=task.id;
+
+        if (!task.done) {
+          chip.draggable=true;
+          chip.addEventListener('dragstart',onDragStart);
+          chip.addEventListener('dragend',onDragEnd);
+          chip.addEventListener('contextmenu',e=>{e.preventDefault();showCtx(e,task.id);});
+        }
+        chip.addEventListener('dblclick',()=>editTask(task.id));
+
+        chip.innerHTML=`
+          ${!task.done?'<span class="drag-grip">⠿</span>':''}
+          <div class="task-check" onclick="toggleTask('${task.id}',event)"></div>
+          <span class="task-text">${task.text}</span>
+        `;
+        cell.appendChild(chip);
+      });
+
+      const btn=document.createElement('button');
+      btn.className='add-task-btn';
+      btn.textContent='+ 추가';
+      btn.onclick=()=>openModal(row.catId,row.subCat,ds);
+      cell.appendChild(btn);
+
+      grid.appendChild(cell);
+    });
+  });
+}
+
+// ── Drag & Drop ───────────────────────────────────────
+let dragId=null;
+
+function onDragStart(e) {
+  dragId=e.currentTarget.dataset.taskId;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',dragId);
+}
+
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.cal-cell.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  dragId=null;
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.cal-cell.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  const cell=e.currentTarget;
+  cell.classList.remove('drag-over');
+  const tid=e.dataTransfer.getData('text/plain')||dragId;
+  if (!tid) return;
+  const task=tasks.find(t=>t.id===tid);
+  if (!task||task.done) return;
+
+  const newDate=cell.dataset.date;
+  const newCatId=cell.dataset.catId;
+  const newSubCat=cell.dataset.subCat;
+  if (task.date===newDate&&task.catId===newCatId&&task.subCat===newSubCat) return;
+
+  const old=dispDate(task.date);
+  task.date=newDate;
+  task.catId=newCatId;
+  task.subCat=newSubCat;
+  save(); render();
+  showToast(`📅 "${task.text}" → ${dispDate(newDate)} 으로 이동했어요`);
+}
+
+// ── Context Menu ─────────────────────────────────────
+let ctxId=null;
+
+function showCtx(e, taskId) {
+  ctxId=taskId;
+  const task=tasks.find(t=>t.id===taskId);
+  if (!task||task.done) return;
+
+  document.getElementById('ctxTitle').textContent=`"${task.text}"`;
+
+  const wd=weekDates();
+  const today=fmt(new Date());
+  document.getElementById('ctxWeekDates').innerHTML=wd.map(d=>{
+    const ds=fmt(d);
+    const isCur=ds===task.date;
+    const isTod=ds===today;
+    return `<button class="ctx-date-btn${isTod?' is-today':''}" ${isCur?'disabled':''} onclick="ctxMoveTo('${ds}')">
+      ${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:9px">${KO[d.getDay()]}</span>
+    </button>`;
+  }).join('');
+
+  const menu=document.getElementById('ctxMenu');
+  menu.classList.add('show');
+  let x=e.clientX+6, y=e.clientY+6;
+  menu.style.left=x+'px'; menu.style.top=y+'px';
+  requestAnimationFrame(()=>{
+    const r=menu.getBoundingClientRect();
+    if(r.right>window.innerWidth-8) menu.style.left=(x-r.width-10)+'px';
+    if(r.bottom>window.innerHeight-8) menu.style.top=(y-r.height-10)+'px';
+  });
+}
+
+function hideCtx() { document.getElementById('ctxMenu').classList.remove('show'); }
+
+function ctxShift(days) {
+  const task=tasks.find(t=>t.id===ctxId); if(!task) return;
+  const d=new Date(task.date+'T00:00:00'); d.setDate(d.getDate()+days);
+  const old=dispDate(task.date);
+  task.date=fmt(d);
+  save(); render(); hideCtx();
+  showToast(`📅 "${task.text}" → ${dispDate(task.date)} 으로 이동했어요`);
+}
+
+function ctxMoveTo(ds) {
+  const task=tasks.find(t=>t.id===ctxId); if(!task) return;
+  const old=dispDate(task.date);
+  task.date=ds;
+  save(); render(); hideCtx();
+  showToast(`📅 "${task.text}" → ${dispDate(ds)} 으로 이동했어요`);
+}
+
+function ctxEdit() { hideCtx(); editTask(ctxId); }
+
+function ctxDelete() {
+  const task=tasks.find(t=>t.id===ctxId); if(!task) return;
+  if(!confirm(`"${task.text}"을(를) 삭제할까요?`)) return;
+  tasks=tasks.filter(t=>t.id!==ctxId);
+  save(); render(); hideCtx();
+  showToast('🗑️ 삭제했어요');
+}
+
+document.addEventListener('click', e=>{
+  if(!document.getElementById('ctxMenu').contains(e.target)) hideCtx();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){hideCtx();closeModal();} });
+
+// ── Interactions ─────────────────────────────────────
+function toggleTask(id, e) {
+  e.stopPropagation();
+  const t=tasks.find(t=>t.id===id);
+  if(t){t.done=!t.done; save(); render();}
+}
+
+function changeWeek(dir) { weekOff+=dir; render(); }
+
+// ── Modal ─────────────────────────────────────────────
+let editId=null;
+
+function openModal(catId='',subCat='',date='') {
+  editId=null;
+  document.getElementById('modalTitle').textContent='할 일 추가';
+  document.getElementById('btnDelete').style.display='none';
+  buildCatSel(catId); updateSubCats(subCat);
+  document.getElementById('mDate').value=date||fmt(new Date());
+  document.getElementById('mText').value='';
+  document.getElementById('mNote').value='';
+  document.getElementById('modalOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('mText').focus(),100);
+}
+
+function editTask(id) {
+  const t=tasks.find(t=>t.id===id); if(!t) return;
+  editId=id;
+  document.getElementById('modalTitle').textContent='할 일 수정';
+  document.getElementById('btnDelete').style.display='block';
+  buildCatSel(t.catId); updateSubCats(t.subCat);
+  document.getElementById('mDate').value=t.date;
+  document.getElementById('mText').value=t.text;
+  document.getElementById('mNote').value=t.note||'';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+
+function buildCatSel(sel='') {
+  document.getElementById('mCat').innerHTML=CATS.map(c=>
+    `<option value="${c.id}"${c.id===sel?' selected':''}>${c.name}</option>`).join('');
+}
+
+function updateSubCats(sel='') {
+  const cat=CATS.find(c=>c.id===document.getElementById('mCat').value);
+  document.getElementById('mSubCat').innerHTML=(cat?.subs||[]).map(s=>
+    `<option value="${s}"${s===sel?' selected':''}>${s}</option>`).join('');
+}
+
+function saveTask() {
+  const catId=document.getElementById('mCat').value;
+  const subCat=document.getElementById('mSubCat').value;
+  const date=document.getElementById('mDate').value;
+  const text=document.getElementById('mText').value.trim();
+  const note=document.getElementById('mNote').value.trim();
+  if(!text||!date){alert('날짜와 할 일 내용을 입력해주세요.'); return;}
+  if(editId){
+    const t=tasks.find(t=>t.id===editId);
+    Object.assign(t,{catId,subCat,date,text,note});
+  } else {
+    tasks.push({id:Date.now()+'',catId,subCat,date,text,note,done:false});
+  }
+  save(); closeModal(); render();
+  showToast(editId?'✅ 수정했어요':'✅ 추가했어요');
+}
+
+function deleteFromModal() {
+  if(!editId) return;
+  const t=tasks.find(t=>t.id===editId);
+  if(!confirm(`"${t?.text}"을(를) 삭제할까요?`)) return;
+  tasks=tasks.filter(t=>t.id!==editId);
+  save(); closeModal(); render(); showToast('🗑️ 삭제했어요');
+}
+
+document.getElementById('modalOverlay').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) closeModal();
+});
+
+// ── Toast ─────────────────────────────────────────────
+let toastTimer=null;
+function showToast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+render();
+</script>
+</body>
+</html>
